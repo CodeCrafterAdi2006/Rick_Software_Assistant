@@ -4,7 +4,7 @@ import json
 import sys
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Generator, List, Optional, Union
 
 from agent_system.agents.orchestrator import OrchestratorAgent
 from agent_system.agents.bug_investigation import BugInvestigationAgent
@@ -28,13 +28,15 @@ def load_issue_payload(issue_path: str | Path) -> IssuePayload:
     return IssuePayload(**data)
 
 
-def run_pipeline(
-    issue_path: str | Path,
-    interactive_gate: bool = False,
-    gate_choice_override: Optional[str] = "A"
-) -> SessionState:
-    """Load issue, initialize session, run pipeline through agents & human gate, and return updated SessionState."""
-    issue = load_issue_payload(issue_path)
+def run_to_gate_generator(
+    issue_input: Union[str, Path, IssuePayload]
+) -> Generator[SessionState, None, SessionState]:
+    """Runs pipeline up to Human Gate, yielding SessionState after each agent handoff for live UI streaming."""
+    if isinstance(issue_input, IssuePayload):
+        issue = issue_input
+    else:
+        issue = load_issue_payload(issue_input)
+
     session_id = f"session_{uuid.uuid4().hex[:8]}"
     logger = SessionLogger(session_id)
 
@@ -68,54 +70,99 @@ def run_pipeline(
             provider=orchestrator.config["provider"],
         )
         print(f"[OK] Triage complete — classified as {triage_res.classification}.")
+        yield state
 
         # Step 2: Bug Investigation (if BUG path)
         if triage_res.classification == "BUG":
             bug_agent = BugInvestigationAgent()
             bug_agent.analyze(state)
             print(f"[OK] Bug Investigation complete — identified root cause in {state.root_cause_report.file}:{state.root_cause_report.line_range}")
+            yield state
 
         # Step 3: Requirements Analysis
         req_agent = RequirementsAnalysisAgent()
         req_agent.analyze(state)
         print(f"[OK] Requirements Analysis complete — scope: {state.requirements_spec.scope}")
+        yield state
 
-        # Outer Human Loop (handles Request Changes retries)
-        while True:
-            # Step 4: Reflection Loop (Coding Assistant ⇄ Testing Agent ⇄ Code Reviewer)
-            run_reflection_loop(state, session_id=session_id)
+        # Step 4: Reflection Loop (Coding Assistant ⇄ Testing Agent ⇄ Code Reviewer)
+        run_reflection_loop(state, session_id=session_id)
+        yield state
 
-            # Step 5: Documentation Writer (if review APPROVED)
-            if state.review_result and state.review_result.decision == "APPROVED":
-                doc_agent = DocumentationWriterAgent()
-                doc_agent.write_documentation(state, session_id=session_id)
-                print(f"[OK] Documentation Writer complete — changelog: {state.doc_updates.changelog_entry}")
+        # Step 5: Documentation Writer (if review APPROVED)
+        if state.review_result and state.review_result.decision == "APPROVED":
+            doc_agent = DocumentationWriterAgent()
+            doc_agent.write_documentation(state, session_id=session_id)
+            print(f"[OK] Documentation Writer complete — changelog: {state.doc_updates.changelog_entry}")
+            yield state
 
-            # Step 6: Human Approval Gate
-            HumanGate.prompt_decision(state, interactive=interactive_gate, default_choice=gate_choice_override)
+        return state
 
-            if state.gate_decision == "REQUEST_CHANGES":
-                print(f"[!] Human Gate requested changes: '{state.human_feedback}'. Resetting downstream state for fresh reflection pass...")
-                # Reset gate_decision and downstream state in reverse dependency order
-                state.gate_decision = None
-                state.doc_updates = None
-                state.review_result = None
-                state.test_result = None
-                state.patch = None
-                state.validate_handoff_chain()
-                state.iteration_count += 1
-                continue
-            else:
-                break
+    except ValueError as cfg_err:
+        state.status = "ERROR"
+        logger.log_error(
+            agent="Orchestrator",
+            error_type="CONFIG_ERROR",
+            message=str(cfg_err),
+            details={"issue_id": issue.id},
+        )
+        print(f"[X] PIPELINE ERROR (CONFIG_ERROR): {cfg_err}", file=sys.stderr)
+        yield state
+        return state
 
-        # Step 7: Post-Gate Action (Invariants I-1 and I-3)
-        if state.gate_decision == "APPROVE":
-            # Invariant I-1: PR Creation tool T-5 is strictly gated behind explicit APPROVE decision
-            from agent_system.tools.github_write import create_pull_request
-            from agent_system.tools.cleanup import cleanup_sandbox
+    except Exception as llm_err:
+        state.status = "ERROR"
+        logger.log_error(
+            agent="Orchestrator",
+            error_type="LLM_ERROR",
+            message=str(llm_err),
+            details={"issue_id": issue.id},
+        )
+        print(f"[X] PIPELINE ERROR (LLM_ERROR): {llm_err}", file=sys.stderr)
+        yield state
+        return state
 
-            pr_title = f"Fix issue #{issue.id}: {issue.title}" if (state.triage_result and state.triage_result.classification == "BUG") else f"Feature issue #{issue.id}: {issue.title}"
-            pr_body = f"""### Multi-Agent Pipeline Resolution Summary
+
+def resume_after_gate(
+    state: SessionState,
+    decision: str,
+    feedback: Optional[str] = None
+) -> SessionState:
+    """Resumes pipeline execution after human gate decision [A/F/R].
+    Enforces validate_assignment=True Pydantic reverse-dependency state clearing on REQUEST_CHANGES.
+    """
+    decision = decision.upper()
+    state.gate_decision = decision
+    state.human_feedback = feedback
+
+    if decision == "REQUEST_CHANGES":
+        print(f"[!] Human Gate requested changes: '{feedback}'. Resetting downstream state for fresh reflection pass...")
+        # Reset gate_decision and downstream state in reverse dependency order
+        state.gate_decision = None
+        state.doc_updates = None
+        state.review_result = None
+        state.test_result = None
+        state.patch = None
+        state.validate_handoff_chain()
+        state.iteration_count += 1
+
+        # Re-run reflection loop for fresh pass
+        run_reflection_loop(state, session_id=state.session_id)
+
+        # Re-run documentation writer if approved on retry
+        if state.review_result and state.review_result.decision == "APPROVED":
+            doc_agent = DocumentationWriterAgent()
+            doc_agent.write_documentation(state, session_id=state.session_id)
+
+        return state
+
+    elif decision == "APPROVE":
+        from agent_system.tools.github_write import create_pull_request
+        from agent_system.tools.cleanup import cleanup_sandbox
+
+        issue = state.issue
+        pr_title = f"Fix issue #{issue.id}: {issue.title}" if (state.triage_result and state.triage_result.classification == "BUG") else f"Feature issue #{issue.id}: {issue.title}"
+        pr_body = f"""### Multi-Agent Pipeline Resolution Summary
 
 **Issue #{issue.id}**: {issue.title}
 **Classification**: {state.triage_result.classification if state.triage_result else 'N/A'}
@@ -133,49 +180,52 @@ def run_pipeline(
 #### Changelog Entry
 {state.doc_updates.changelog_entry if state.doc_updates else 'N/A'}
 """
-            pr_res = create_pull_request(branch=f"fix/issue-{issue.id}", title=pr_title, body=pr_body)
-            if not isinstance(pr_res, Exception):
-                from agent_system.persona.decorator import apply_persona
-                pr_url = pr_res.get('html_url') if isinstance(pr_res, dict) else pr_res
-                msg = apply_persona(f"[OK] Pull Request created successfully! URL: {pr_url}")
-                print(msg)
-            
-            # Cleanup sandbox on session completion
-            cleanup_sandbox(session_id)
-            if state.doc_updates is not None:
-                state.status = "READY"
+        pr_res = create_pull_request(branch=f"fix/issue-{issue.id}", title=pr_title, body=pr_body)
+        if not isinstance(pr_res, Exception):
+            from agent_system.persona.decorator import apply_persona
+            pr_url = pr_res.get('html_url') if isinstance(pr_res, dict) else pr_res
+            msg = apply_persona(f"[OK] Pull Request created successfully! URL: {pr_url}")
+            print(msg)
+        
+        cleanup_sandbox(state.session_id)
+        if state.doc_updates is not None:
+            state.status = "READY"
 
-        elif state.gate_decision == "REJECT":
-            # Invariant I-3: Reject decision discards sandbox/branch and NEVER calls T-5 PR creation
-            from agent_system.tools.cleanup import cleanup_sandbox
-            cleanup_sandbox(session_id)
-            print(f"[OK] Session Rejected. Sandbox discarded, no PR created.")
+    elif decision == "REJECT":
+        from agent_system.tools.cleanup import cleanup_sandbox
+        cleanup_sandbox(state.session_id)
+        print(f"[OK] Session Rejected. Sandbox discarded, no PR created.")
 
-        print(f"=== Session Finished with Gate Decision: {state.gate_decision} ===")
-        print(f"Session log saved to: {logger.log_file.resolve()}")
+    print(f"=== Session Finished with Gate Decision: {state.gate_decision} ===")
+    return state
+
+
+def run_pipeline(
+    issue_path: str | Path,
+    interactive_gate: bool = False,
+    gate_choice_override: Optional[str] = "A"
+) -> SessionState:
+    """Load issue, initialize session, run pipeline through agents & human gate, and return updated SessionState."""
+    gen = run_to_gate_generator(issue_path)
+    state = None
+    for s in gen:
+        state = s
+
+    if state.status == "ERROR":
         return state
 
-    except ValueError as cfg_err:
-        state.status = "ERROR"
-        logger.log_error(
-            agent="Orchestrator",
-            error_type="CONFIG_ERROR",
-            message=str(cfg_err),
-            details={"issue_id": issue.id},
-        )
-        print(f"[X] PIPELINE ERROR (CONFIG_ERROR): {cfg_err}", file=sys.stderr)
-        return state
+    # Prompt decision at human gate (loops if REQUEST_CHANGES in interactive/test mode)
+    while True:
+        HumanGate.prompt_decision(state, interactive=interactive_gate, default_choice=gate_choice_override)
+        if state.gate_decision:
+            decision = state.gate_decision
+            feedback = state.human_feedback
+            state = resume_after_gate(state, decision, feedback=feedback)
+            if decision == "REQUEST_CHANGES":
+                continue
+        break
 
-    except Exception as llm_err:
-        state.status = "ERROR"
-        logger.log_error(
-            agent="Orchestrator",
-            error_type="LLM_ERROR",
-            message=str(llm_err),
-            details={"issue_id": issue.id},
-        )
-        print(f"[X] PIPELINE ERROR (LLM_ERROR): {llm_err}", file=sys.stderr)
-        return state
+    return state
 
 
 def main(argv: Optional[List[str]] = None) -> None:
