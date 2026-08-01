@@ -514,4 +514,4 @@ with gr.Blocks(title="Rick Software Assistant") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_port=7861, show_api=False)
+    demo.launch(server_port=7861, css=CUSTOM_CSS)

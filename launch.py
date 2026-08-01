@@ -38,7 +38,6 @@ def main():
         app.demo.launch(
             server_name="127.0.0.1",
             server_port=port,
-            show_api=False,
             quiet=True,
             css=app.CUSTOM_CSS,
             prevent_thread_lock=True,
