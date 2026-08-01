@@ -85,44 +85,60 @@ def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
             )
 
         if process.returncode != 0:
-            # Fallback: Python-native patch application if git apply fails on LLM header formatting
+            # Fallback: Python-native line-matching patch application if git apply fails on LLM line counts
             try:
-                for chunk in diff_text.split("diff --git"):
-                    if not chunk.strip():
-                        continue
+                chunks = [c for c in diff_text.split("diff --git") if c.strip()]
+                if not chunks:
+                    chunks = [diff_text]
+
+                for chunk in chunks:
                     lines = chunk.strip().splitlines()
                     target_file = None
-                    for line in lines:
-                        if line.startswith("+++ b/"):
-                            target_file = line[6:].strip()
+                    for l in lines:
+                        if l.startswith("+++ b/"):
+                            target_file = l[6:].strip()
                             break
-                        elif line.startswith("+++ "):
-                            target_file = line[4:].strip().lstrip("b/").lstrip("a/")
+                        elif l.startswith("+++ "):
+                            target_file = l[4:].strip().lstrip("b/").lstrip("a/")
                             break
-                    
+                        elif l.startswith("--- a/"):
+                            target_file = l[6:].strip()
+                            break
+
+                    if not target_file:
+                        for p in sandbox_dir.rglob("*.py"):
+                            if p.name in chunk:
+                                target_file = str(p.relative_to(sandbox_dir))
+                                break
+
                     if not target_file:
                         continue
 
                     full_path = sandbox_dir / target_file.lstrip("/")
                     if not full_path.exists():
+                        for p in sandbox_dir.rglob(Path(target_file).name):
+                            full_path = p
+                            break
+
+                    if not full_path.exists():
                         continue
 
-                    # Extract removed and added lines
-                    old_lines = []
-                    new_lines = []
-                    for line in lines:
-                        if line.startswith("-") and not line.startswith("---"):
-                            old_lines.append(line[1:])
-                        elif line.startswith("+") and not line.startswith("+++"):
-                            new_lines.append(line[1:])
+                    file_content = full_path.read_text(encoding="utf-8")
+                    removed_lines = [l[1:].strip() for l in lines if l.startswith("-") and not l.startswith("---")]
+                    added_lines = [l[1:].strip() for l in lines if l.startswith("+") and not l.startswith("+++")]
 
-                    if old_lines and full_path.exists():
-                        content = full_path.read_text(encoding="utf-8")
-                        old_block = "\n".join(old_lines)
-                        new_block = "\n".join(new_lines)
-                        if old_block in content:
-                            content = content.replace(old_block, new_block, 1)
-                            full_path.write_text(content, encoding="utf-8")
+                    if removed_lines and added_lines:
+                        file_lines = file_content.splitlines()
+                        match_idx = -1
+                        for idx, f_line in enumerate(file_lines):
+                            if removed_lines[0] in f_line or f_line.strip() == removed_lines[0]:
+                                match_idx = idx
+                                break
+
+                        if match_idx != -1:
+                            num_remove = len(removed_lines)
+                            file_lines[match_idx : match_idx + num_remove] = added_lines
+                            full_path.write_text("\n".join(file_lines) + "\n", encoding="utf-8")
                             return True
             except Exception:
                 pass
