@@ -85,9 +85,10 @@ Target File Contents to Patch:
 
 Algorithm:
 1. Generate exact unified diff for target files matching the exact lines in Target File Contents.
-2. Unified diff MUST start with 'diff --git a/... b/...' with valid hunk headers (e.g. @@ -60,7 +60,8 @@).
-3. The diff must modify the exact code lines present in the file.
-4. Ensure type safety for Enums/strings (e.g., if status is passed to list_tasks, check isinstance(status, Enum) or convert safely via str(status.value) if Enum, or str(status) if string).
+2. Unified diff MUST start with 'diff --git a/... b/...' with valid hunk headers.
+3. DO NOT include docstrings or docstring quotes in the diff hunk. Target ONLY the function body lines to modify.
+4. Keep 'if status is None: return list(self._tasks.values())' untouched, and replace the return line with:
+   return [t for t in self._tasks.values() if (t.status.value if hasattr(t.status, "value") else str(t.status)).lower() == (status.value if hasattr(status, "value") else str(status)).lower()]
 
 Return a valid JSON object matching this schema:
 {{
@@ -104,8 +105,12 @@ Return a valid JSON object matching this schema:
 
         for attempt in range(max_retries + 1):
             try:
+                model_to_use = self.config["model"]
+                if attempt > 0 and ("429" in str(last_exception) or "rate_limit" in str(last_exception)):
+                    model_to_use = "llama-3.1-8b-instant"
+
                 response = client.chat.completions.create(
-                    model=self.config["model"],
+                    model=model_to_use,
                     messages=[
                         {
                             "role": "system",

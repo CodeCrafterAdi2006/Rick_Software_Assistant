@@ -125,9 +125,8 @@ def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
 
                     file_content = full_path.read_text(encoding="utf-8")
                     removed_lines = [l[1:].strip() for l in lines if l.startswith("-") and not l.startswith("---")]
-                    added_lines = [l[1:].strip() for l in lines if l.startswith("+") and not l.startswith("+++")]
 
-                    if removed_lines and added_lines:
+                    if removed_lines:
                         file_lines = file_content.splitlines()
                         match_idx = -1
                         for idx, f_line in enumerate(file_lines):
@@ -136,6 +135,17 @@ def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
                                 break
 
                         if match_idx != -1:
+                            target_indent = file_lines[match_idx][: len(file_lines[match_idx]) - len(file_lines[match_idx].lstrip())]
+                            
+                            added_lines = []
+                            for l in lines:
+                                if l.startswith("+") and not l.startswith("+++"):
+                                    raw_val = l[1:]
+                                    if raw_val.startswith(" ") or raw_val.startswith("\t"):
+                                        added_lines.append(raw_val)
+                                    else:
+                                        added_lines.append(target_indent + raw_val.lstrip())
+
                             num_remove = len(removed_lines)
                             file_lines[match_idx : match_idx + num_remove] = added_lines
                             full_path.write_text("\n".join(file_lines) + "\n", encoding="utf-8")
@@ -202,15 +212,15 @@ def run_pytest(sandbox_dir: Path) -> Union[Dict[str, Any], ToolError]:
         # Basic status extraction
         if process.returncode == 0:
             status = "PASS"
-        elif process.returncode == 1:
+        elif process.returncode == 1 or (process.returncode == 2 and any(err in output for err in ("SyntaxError", "IndentationError", "ImportError", "ModuleNotFoundError", "NameError"))):
             status = "FAIL"
-            # Extract basic tb
             if "FAILURES" in output:
                 tracebacks.append(output.split("FAILURES")[-1].strip())
+            elif "ERRORS" in output:
+                tracebacks.append(output.split("ERRORS")[-1].strip())
             else:
-                tracebacks.append(output)
+                tracebacks.append(output.strip())
         else:
-            # Pytest returns 2 for usage error, 3 for internal error, 4 for command line error, 5 for no tests collected
             return ToolError(
                 tool="T-3:pytest_runner",
                 error_type="PYTEST_EXECUTION_ERROR",

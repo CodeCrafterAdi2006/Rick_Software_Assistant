@@ -81,8 +81,13 @@ Analyze the code defect and return a JSON object matching this schema:
 
         for attempt in range(max_retries + 1):
             try:
+                # Use current model, fallback to lightweight model on rate limit
+                model_to_use = self.config["model"]
+                if attempt > 0 and ("429" in str(last_exception) or "rate_limit" in str(last_exception)):
+                    model_to_use = "llama-3.1-8b-instant"
+
                 response = client.chat.completions.create(
-                    model=self.config["model"],
+                    model=model_to_use,
                     messages=[
                         {
                             "role": "system",
