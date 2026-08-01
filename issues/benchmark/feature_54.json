@@ -1,0 +1,7 @@
+{
+  "id": 54,
+  "title": "Add export_to_json() utility function",
+  "body": "Implement export_to_json(filepath) method on TaskManager to save all tasks into JSON file.",
+  "labels": ["enhancement"],
+  "author": "helen_r"
+}

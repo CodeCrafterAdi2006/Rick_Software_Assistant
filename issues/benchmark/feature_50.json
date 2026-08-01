@@ -1,0 +1,7 @@
+{
+  "id": 50,
+  "title": "Refactor codebase to use asyncio microservices architecture",
+  "body": "Completely rewrite task_tracker into a multi-service RPC microservices framework.",
+  "labels": ["enhancement"],
+  "author": "architect_bob"
+}

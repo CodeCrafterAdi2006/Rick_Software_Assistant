@@ -1,0 +1,7 @@
+{
+  "id": 44,
+  "title": "list_tasks must return [] AND raise ValueError for the same input",
+  "body": "When I call manager.list_tasks(status='invalid'), it must return an empty list [] AND simultaneously raise a ValueError exception for the same call.",
+  "labels": ["bug"],
+  "author": "pathological_user"
+}

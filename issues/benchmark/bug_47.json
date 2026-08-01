@@ -1,0 +1,7 @@
+{
+  "id": 47,
+  "title": "Task filter crash",
+  "body": "Filter crashes on invalid status.",
+  "labels": ["bug"],
+  "author": "dev_anon"
+}

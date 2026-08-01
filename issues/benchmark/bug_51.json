@@ -1,0 +1,7 @@
+{
+  "id": 51,
+  "title": "IndexError on empty task list status lookup",
+  "body": "Calling get_first_task_by_status() on an empty list raises IndexError instead of returning None.",
+  "labels": ["bug"],
+  "author": "eric_s"
+}

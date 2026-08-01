@@ -1,0 +1,7 @@
+{
+  "id": 49,
+  "title": "Broken assertions in test_task_tracker.py fixture",
+  "body": "The test file contains invalid hardcoded fixture assertions that conflict with valid core logic.",
+  "labels": ["bug"],
+  "author": "qa_tester"
+}

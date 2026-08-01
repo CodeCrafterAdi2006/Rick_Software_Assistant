@@ -1,0 +1,3 @@
+"""
+Persona Output Decorator module.
+"""

@@ -1,0 +1,7 @@
+{
+  "id": 45,
+  "title": "Task output formatting crash on null due_date",
+  "body": "Formatting a task with null due_date in core.py and CLI leads to an AttributeError when string formatting tries to call strftime on None.",
+  "labels": ["bug"],
+  "author": "brian_m"
+}

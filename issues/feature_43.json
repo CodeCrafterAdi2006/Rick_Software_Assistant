@@ -1,0 +1,7 @@
+{
+  "id": 43,
+  "title": "Add priority filter to list_tasks()",
+  "body": "I want to be able to call manager.list_tasks(min_priority=3) and get only tasks with priority 3 or above. Right now I have to filter manually after calling list_tasks(). Should support combining with the status filter.",
+  "labels": ["enhancement"],
+  "author": "adev"
+}

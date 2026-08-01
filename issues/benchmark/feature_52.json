@@ -1,0 +1,7 @@
+{
+  "id": 52,
+  "title": "Support optional limit parameter in list_tasks()",
+  "body": "Allow passing limit=N to list_tasks() to cap the number of returned task objects.",
+  "labels": ["enhancement"],
+  "author": "fiona_h"
+}

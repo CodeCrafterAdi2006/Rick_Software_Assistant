@@ -1,0 +1,7 @@
+{
+  "id": 48,
+  "title": "Change default task priority sorting order to ascending",
+  "body": "Tasks should be sorted in ascending order of priority by default, conflicting with legacy test assumptions.",
+  "labels": ["enhancement"],
+  "author": "dave_l"
+}

@@ -1,0 +1,7 @@
+{
+  "id": 42,
+  "title": "list_tasks returns empty when filtering by lowercase status",
+  "body": "When I call manager.list_tasks('todo') I get an empty list even though I have TODO tasks. Filtering only works if I use uppercase 'TODO'. This is inconsistent with the docs which show lowercase usage.",
+  "labels": ["bug"],
+  "author": "jsmith"
+}

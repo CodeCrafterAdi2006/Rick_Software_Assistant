@@ -1,0 +1,7 @@
+{
+  "id": 46,
+  "title": "Add mandatory tag field to Task creation API",
+  "body": "Add a required 'tag' parameter to Task initialization and CLI add command. Update task filtering to support tags.",
+  "labels": ["enhancement"],
+  "author": "carol_k"
+}

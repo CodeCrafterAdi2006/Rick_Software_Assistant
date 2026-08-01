@@ -1,0 +1,7 @@
+{
+  "id": 53,
+  "title": "Task representation string missing priority field",
+  "body": "Task.__repr__() does not include priority attribute in string representation.",
+  "labels": ["bug"],
+  "author": "george_p"
+}
