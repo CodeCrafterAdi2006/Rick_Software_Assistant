@@ -40,6 +40,7 @@ def main():
             server_port=port,
             show_api=False,
             quiet=True,
+            css=app.CUSTOM_CSS,
             prevent_thread_lock=True,
         )
 

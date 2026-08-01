@@ -355,7 +355,7 @@ def save_settings(groq_key: str, github_token: str, live_mode: bool, persona_ena
 
 
 # Build Gradio Interface
-with gr.Blocks(title="Rick Software Assistant", css=CUSTOM_CSS) as demo:
+with gr.Blocks(title="Rick Software Assistant") as demo:
     gr.Markdown("# 🧪 Rick Software Assistant — Multi-Agent Engineering UI")
 
     # Settings Modal Accordion
@@ -451,7 +451,7 @@ with gr.Blocks(title="Rick Software Assistant", css=CUSTOM_CSS) as demo:
         with gr.Column(scale=4):
             with gr.Tabs():
                 with gr.Tab("📄 Patch Diff"):
-                    patch_output = gr.Code(language="diff", label="Generated Patch Diff")
+                    patch_output = gr.Code(language=None, label="Generated Patch Diff")
                 with gr.Tab("🧪 Test Results"):
                     test_output = gr.Textbox(lines=8, label="Pytest Sandbox Output")
                 with gr.Tab("🔍 Code Review & Lints"):
