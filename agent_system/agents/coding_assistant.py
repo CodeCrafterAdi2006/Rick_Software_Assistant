@@ -8,7 +8,10 @@ from agent_system.config.models import get_model_config
 from agent_system.config.settings import Settings
 from agent_system.schemas.state import PatchResult, SessionState
 from agent_system.tools.repo_search import grep_search
-from agent_system.schemas.state import ToolError
+from pathlib import Path
+
+# Anchored project root (parent of agent_system)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CodingAssistantAgent:
@@ -43,13 +46,20 @@ class CodingAssistantAgent:
         spec = state.requirements_spec
         issue = state.issue
         
-        # Grep search over target files for extra context
-        grep_context = []
-        for file in spec.target_files:
-            grep_res = grep_search("def ", target_dir=None, file_pattern=f"*{file.split('/')[-1]}")
-            if isinstance(grep_res, list):
-                for match in grep_res[:5]:
-                    grep_context.append(f"{match.get('file')}:{match.get('line_number')}: {match.get('content')}")
+        # Read full file contents for target files so LLM can generate exact unified diff patches
+        target_file_contexts = {}
+        for file_path in spec.target_files:
+            clean_rel = file_path.replace("demo_repo/", "").lstrip("/")
+            full_path = PROJECT_ROOT / "demo_repo" / clean_rel
+            if not full_path.exists():
+                full_path = PROJECT_ROOT / file_path.lstrip("/")
+            
+            if full_path.exists():
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        target_file_contexts[clean_rel] = f.read()
+                except Exception:
+                    pass
 
         # Feedback from previous iterations if retrying loop
         feedback_context = ""
@@ -69,9 +79,15 @@ Acceptance Criteria:
 {json.dumps(spec.acceptance_criteria, indent=2)}
 Target Files: {spec.target_files}
 
-Code Snippet Context:
-{json.dumps(grep_context, indent=2)}
+Target File Contents to Patch:
+{json.dumps(target_file_contexts, indent=2)}
 {feedback_context}
+
+Algorithm:
+1. Generate exact unified diff for target files matching the exact lines in Target File Contents.
+2. Unified diff MUST start with 'diff --git a/... b/...' with valid hunk headers (e.g. @@ -60,7 +60,8 @@).
+3. The diff must modify the exact code lines present in the file.
+4. Ensure type safety for Enums/strings (e.g., if status is passed to list_tasks, check isinstance(status, Enum) or convert safely via str(status.value) if Enum, or str(status) if string).
 
 Return a valid JSON object matching this schema:
 {{

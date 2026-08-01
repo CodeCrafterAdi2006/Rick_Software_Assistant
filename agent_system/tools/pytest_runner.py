@@ -41,12 +41,22 @@ def setup_sandbox(session_id: str) -> Union[Path, ToolError]:
 def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
     """Applies a git patch to the sandbox directory."""
     try:
-        if not diff.strip():
+        diff_text = diff.strip()
+        if not diff_text:
             return True
+
+        # Clean leading whitespace before diff headers if LLM prepended space/newlines
+        raw_lines = diff_text.splitlines()
+        lines = []
+        for line in raw_lines:
+            if line.lstrip().startswith("diff --git"):
+                lines.append(line.lstrip())
+            else:
+                lines.append(line)
 
         # Normalize LLM diff headers if missing a/ and b/ prefixes
         normalized_lines = []
-        for line in diff.splitlines():
+        for line in lines:
             if line.startswith("--- ") and not line.startswith("--- a/"):
                 filepath = line[4:].strip()
                 normalized_lines.append(f"--- a/{filepath.lstrip('/')}")
