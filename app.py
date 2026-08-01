@@ -358,16 +358,29 @@ def handle_gate_action(decision: str, feedback: str):
 
     if decision == "APPROVE":
         dialogue = get_dialogue("approved")
+        gate_visible = gr.update(visible=False)
     elif decision == "REJECT":
         dialogue = get_dialogue("rejected")
+        gate_visible = gr.update(visible=False)
     else:
-        dialogue = get_dialogue("reflection")
+        dialogue = get_dialogue("human_gate") if updated_state.status in ("IN_PROGRESS", "PARTIAL", "READY") else get_dialogue("reflection")
+        gate_visible = gr.update(visible=True)
 
-    status_text = f"**Status**: `{updated_state.status}` | **Gate Decision**: `{updated_state.gate_decision}`"
+    status_text = f"**Status**: `{updated_state.status}` | **Session ID**: `{updated_state.session_id}` | **Iterations**: `{updated_state.iteration_count}`"
     patch_diff = updated_state.patch.diff if updated_state.patch else "No patch."
-    test_summary = f"Status: {updated_state.test_result.status}" if updated_state.test_result else "No tests."
-    review_summary = f"Decision: {updated_state.review_result.decision}" if updated_state.review_result else "No review."
-    doc_summary = f"Changelog: {updated_state.doc_updates.changelog_entry}" if updated_state.doc_updates else "No docs."
+    
+    test_summary = "No tests executed yet."
+    if updated_state.test_result:
+        test_summary = f"Status: {updated_state.test_result.status}\nPassed: {updated_state.test_result.passed}\nFailed: {updated_state.test_result.failed}\n\nTracebacks:\n" + "\n".join(updated_state.test_result.tracebacks)
+
+    review_summary = "No code review yet."
+    if updated_state.review_result:
+        review_summary = f"Decision: {updated_state.review_result.decision}\nCritique: {updated_state.review_result.critique}\nLints: {updated_state.review_result.linter_output}"
+
+    doc_summary = "No documentation updates yet."
+    if updated_state.doc_updates:
+        doc_summary = f"Changelog Entry:\n{updated_state.doc_updates.changelog_entry}\n\nDocstring Diffs:\n" + "\n".join(updated_state.doc_updates.docstring_diffs)
+
     session_log = json.dumps(updated_state.model_dump(mode="json"), indent=2)
 
     return (
@@ -378,7 +391,7 @@ def handle_gate_action(decision: str, feedback: str):
         review_summary,
         doc_summary,
         session_log,
-        gr.update(visible=False),
+        gate_visible,
     )
 
 

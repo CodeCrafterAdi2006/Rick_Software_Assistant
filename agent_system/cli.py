@@ -143,8 +143,9 @@ def resume_after_gate(
         state.review_result = None
         state.test_result = None
         state.patch = None
+        state.iteration_count = 0  # Reset for fresh human-guided reflection pass
+        state.status = "IN_PROGRESS"
         state.validate_handoff_chain()
-        state.iteration_count += 1
 
         # Re-run reflection loop for fresh pass
         run_reflection_loop(state, session_id=state.session_id)
