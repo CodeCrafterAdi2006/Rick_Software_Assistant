@@ -392,12 +392,17 @@ def save_settings(groq_key: str, github_token: str, live_mode: bool, persona_ena
     os.environ["GITHUB_LIVE_MODE"] = "true" if live_mode else "false"
     os.environ["PERSONA_ENABLED"] = "true" if persona_enabled else "false"
 
-    groq_status = "[CONFIGURED]" if os.getenv("GROQ_API_KEY") else "[MISSING]"
+    all_keys = Settings.get_all_api_keys("GROQ_API_KEY")
+    if all_keys:
+        groq_status = f"[CONFIGURED — {len(all_keys)} Key(s) in Active Pool]"
+    else:
+        groq_status = "[MISSING]"
+
     github_status = "[CONFIGURED]" if os.getenv("GITHUB_TOKEN") else "[OPTIONAL - MOCK MODE]"
     live_status = "ON (Real PR Creation)" if live_mode else "OFF (Mock PR Mode)"
     persona_status = "ON (Rick Dialogue Active)" if persona_enabled else "OFF (Plain Status Mode)"
 
-    return f"**Settings Updated**\n\n- Groq API Key: `{groq_status}`\n- GitHub Token: `{github_status}`\n- Live GitHub Mode: `{live_status}`\n- Persona Mode: `{persona_status}`"
+    return f"**Settings Updated**\n\n- Groq API Key Pool: `{groq_status}`\n- GitHub Token: `{github_status}`\n- Live GitHub Mode: `{live_status}`\n- Persona Mode: `{persona_status}`"
 
 
 # Build Gradio Interface
@@ -415,10 +420,10 @@ with gr.Blocks(title="Rick Software Assistant") as demo:
     with gr.Accordion("Settings & API Configuration", open=False):
         with gr.Row():
             groq_input = gr.Textbox(
-                label="GROQ API Key",
+                label="GROQ API Keys (comma-separated for multi-key org pool)",
                 type="password",
                 value=os.getenv("GROQ_API_KEY", ""),
-                placeholder="gsk_...",
+                placeholder="gsk_org1..., gsk_org2..., gsk_org3...",
             )
             github_input = gr.Textbox(
                 label="GitHub Personal Access Token (Optional)",

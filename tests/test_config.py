@@ -39,3 +39,14 @@ def test_settings_retry_policy():
     assert policy["max_retries"] == 3
     assert policy["backoff_delays_sec"] == [0.5, 1.0, 2.0]
     assert 429 in policy["retry_on_status_codes"]
+
+
+def test_settings_multi_key_pool(monkeypatch):
+    monkeypatch.setenv("MULTI_KEY_TEST", "gsk_org1, gsk_org2, gsk_org3")
+    
+    assert Settings.get_all_api_keys("MULTI_KEY_TEST") == ["gsk_org1", "gsk_org2", "gsk_org3"]
+    assert Settings.get_api_key("MULTI_KEY_TEST") == "gsk_org1"
+    assert Settings.get_api_key("MULTI_KEY_TEST") == "gsk_org2"
+    assert Settings.get_api_key("MULTI_KEY_TEST") == "gsk_org3"
+    assert Settings.get_api_key("MULTI_KEY_TEST") == "gsk_org1"
+
