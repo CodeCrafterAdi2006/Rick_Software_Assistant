@@ -41,19 +41,40 @@ def setup_sandbox(session_id: str) -> Union[Path, ToolError]:
 def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
     """Applies a git patch to the sandbox directory."""
     try:
-        # Run git apply in the sandbox directory
-        # Using --allow-empty in case patch is empty, but we'll check it before.
-        # Actually git apply doesn't like empty patches.
         if not diff.strip():
             return True
-            
+
+        # Normalize LLM diff headers if missing a/ and b/ prefixes
+        normalized_lines = []
+        for line in diff.splitlines():
+            if line.startswith("--- ") and not line.startswith("--- a/"):
+                filepath = line[4:].strip()
+                normalized_lines.append(f"--- a/{filepath.lstrip('/')}")
+            elif line.startswith("+++ ") and not line.startswith("+++ b/"):
+                filepath = line[4:].strip()
+                normalized_lines.append(f"+++ b/{filepath.lstrip('/')}")
+            else:
+                normalized_lines.append(line)
+        
+        normalized_diff = "\n".join(normalized_lines) + "\n"
+
         process = subprocess.run(
-            ["git", "apply", "--ignore-space-change", "--ignore-whitespace", "--recount"],
-            input=diff,
+            ["git", "apply", "--ignore-space-change", "--ignore-whitespace", "--recount", "--unidiff-zero"],
+            input=normalized_diff,
             text=True,
             cwd=sandbox_dir,
             capture_output=True,
         )
+        if process.returncode != 0:
+            # Fallback retry without unidiff-zero if needed
+            process = subprocess.run(
+                ["git", "apply", "--ignore-space-change", "--ignore-whitespace", "--recount"],
+                input=diff,
+                text=True,
+                cwd=sandbox_dir,
+                capture_output=True,
+            )
+
         if process.returncode != 0:
             return ToolError(
                 tool="T-3:pytest_runner",
