@@ -22,7 +22,7 @@ load_dotenv()
 # Path to Rick image asset
 RICK_IMAGE_PATH = PROJECT_ROOT / "assets" / "rick.png"
 
-# Custom CSS for GitHub / Rick Dark Palette
+# Custom CSS for Professional Dark Palette
 CUSTOM_CSS = """
 body, .gradio-container {
     background-color: #0D1117 !important;
@@ -33,19 +33,19 @@ body, .gradio-container {
 .rick-speech-box {
     background-color: #161B22;
     border: 2px solid #58C8F5;
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 16px;
     margin-bottom: 12px;
     position: relative;
-    box-shadow: 0 4px 12px rgba(88, 200, 245, 0.15);
+    box-shadow: 0 4px 14px rgba(88, 200, 245, 0.12);
 }
 
 .rick-speech-box::after {
     content: '';
     position: absolute;
-    bottom: -12px;
+    bottom: -10px;
     left: 40px;
-    border-width: 12px 12px 0;
+    border-width: 10px 10px 0;
     border-style: solid;
     border-color: #58C8F5 transparent;
     display: block;
@@ -54,39 +54,88 @@ body, .gradio-container {
 
 .rick-dialogue {
     color: #58C8F5;
-    font-size: 1.05rem;
+    font-size: 1.02rem;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.45;
     margin: 0;
 }
 
-.agent-step-pass {
-    border-left: 4px solid #7DE8B8 !important;
+.header-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    background-color: #161B22;
+    border: 1px solid #30363D;
+    border-radius: 8px;
+    margin-bottom: 16px;
 }
 
-.agent-step-fail {
-    border-left: 4px solid #F85149 !important;
+.header-title {
+    margin: 0;
+    color: #E6EDF3;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
-.agent-step-running {
-    border-left: 4px solid #58C8F5 !important;
+.header-subtitle {
+    color: #7D8590;
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin-left: 6px;
+}
+
+.gate-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    background: rgba(88, 200, 245, 0.08);
+    border-left: 4px solid #58C8F5;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.gate-title {
+    font-weight: 700;
+    color: #58C8F5;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
 }
 
 .gate-approve-btn {
     background-color: #238636 !important;
     color: #FFFFFF !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
 }
 
 .gate-reject-btn {
     background-color: #DA3633 !important;
     color: #FFFFFF !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
 }
 
 .gate-request-btn {
     background-color: #D29922 !important;
     color: #FFFFFF !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+}
+
+.run-pipeline-btn {
+    background-color: #1F6FEB !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
 }
 """
+
+# SVG Icons
+FLASK_SVG = """<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#58C8F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>"""
+SHIELD_SVG = """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#58C8F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"""
 
 # Speech Bubble Dialogue Dictionary
 SPEECH_DIALOGUES: Dict[str, Dict[str, str]] = {
@@ -145,13 +194,11 @@ def get_available_issue_files() -> List[str]:
     """List all available issue JSON files in issues/ and issues/benchmark/."""
     issue_files = []
     
-    # Root issues
     root_issues = PROJECT_ROOT / "issues"
     if root_issues.exists():
         for f in sorted(root_issues.glob("*.json")):
             issue_files.append(f.relative_to(PROJECT_ROOT).as_posix())
 
-    # Benchmark issues
     bench_issues = PROJECT_ROOT / "issues" / "benchmark"
     if bench_issues.exists():
         for f in sorted(bench_issues.glob("*.json")):
@@ -180,13 +227,12 @@ def run_pipeline_ui(
     custom_labels: str,
 ):
     """Gradio generator callback for live pipeline execution streaming."""
-    # Resolve issue input
     if input_mode == "Benchmark Payload":
         issue_path = PROJECT_ROOT / selected_issue_file
         if not issue_path.exists():
             yield (
                 get_dialogue("error"),
-                "❌ Error: Issue file not found.",
+                "**[ERROR]**: Issue file not found.",
                 "", "", "", "", "",
                 gr.update(visible=False),
             )
@@ -206,7 +252,7 @@ def run_pipeline_ui(
     if not os.getenv("GROQ_API_KEY"):
         yield (
             get_dialogue("error"),
-            "❌ Error: GROQ_API_KEY is missing. Please configure it in ⚙️ API Keys.",
+            "**[ERROR]**: GROQ_API_KEY is missing. Please configure it in System Settings.",
             "", "", "", "", "",
             gr.update(visible=False),
         )
@@ -290,7 +336,7 @@ def run_pipeline_ui(
     except Exception as e:
         yield (
             get_dialogue("error"),
-            f"❌ Exception: {e}",
+            f"**[ERROR]**: {e}",
             "", "", "", "", "",
             gr.update(visible=False),
         )
@@ -302,7 +348,7 @@ def handle_gate_action(decision: str, feedback: str):
     if not state:
         return (
             get_dialogue("error"),
-            "❌ Error: No active session found.",
+            "**[ERROR]**: No active session found.",
             "", "", "", "", "",
             gr.update(visible=False),
         )
@@ -346,20 +392,27 @@ def save_settings(groq_key: str, github_token: str, live_mode: bool, persona_ena
     os.environ["GITHUB_LIVE_MODE"] = "true" if live_mode else "false"
     os.environ["PERSONA_ENABLED"] = "true" if persona_enabled else "false"
 
-    groq_status = "✅ Configured" if os.getenv("GROQ_API_KEY") else "❌ Missing"
-    github_status = "✅ Configured" if os.getenv("GITHUB_TOKEN") else "⚠️ Optional (Using Mock Mode)"
+    groq_status = "[CONFIGURED]" if os.getenv("GROQ_API_KEY") else "[MISSING]"
+    github_status = "[CONFIGURED]" if os.getenv("GITHUB_TOKEN") else "[OPTIONAL - MOCK MODE]"
     live_status = "ON (Real PR Creation)" if live_mode else "OFF (Mock PR Mode)"
     persona_status = "ON (Rick Dialogue Active)" if persona_enabled else "OFF (Plain Status Mode)"
 
-    return f"Settings Saved!\n\nGroq API Key: {groq_status}\nGitHub Token: {github_status}\nLive GitHub Mode: {live_status}\nPersona Mode: {persona_status}"
+    return f"**Settings Updated**\n\n- Groq API Key: `{groq_status}`\n- GitHub Token: `{github_status}`\n- Live GitHub Mode: `{live_status}`\n- Persona Mode: `{persona_status}`"
 
 
 # Build Gradio Interface
 with gr.Blocks(title="Rick Software Assistant") as demo:
-    gr.Markdown("# 🧪 Rick Software Assistant — Multi-Agent Engineering UI")
+    gr.HTML(f"""
+    <div class="header-banner">
+        {FLASK_SVG}
+        <div>
+            <h1 class="header-title">Rick Software Assistant <span class="header-subtitle">| Multi-Agent Autonomous Engineering Platform</span></h1>
+        </div>
+    </div>
+    """)
 
     # Settings Modal Accordion
-    with gr.Accordion("⚙️ API Keys & Configuration Settings", open=False):
+    with gr.Accordion("Settings & API Configuration", open=False):
         with gr.Row():
             groq_input = gr.Textbox(
                 label="GROQ API Key",
@@ -382,7 +435,7 @@ with gr.Blocks(title="Rick Software Assistant") as demo:
                 label="Enable Rick Sanchez Persona Dialogue",
                 value=Settings.is_persona_enabled(),
             )
-        save_btn = gr.Button("💾 Save Configuration", variant="secondary")
+        save_btn = gr.Button("Save Configuration", variant="secondary")
         settings_output = gr.Markdown()
 
         save_btn.click(
@@ -444,32 +497,37 @@ with gr.Blocks(title="Rick Software Assistant") as demo:
                 outputs=[bench_group, custom_group],
             )
 
-            run_btn = gr.Button("🚀 Run Multi-Agent Pipeline", variant="primary")
-            status_markdown = gr.Markdown("**Status**: `IDLE` | Select an issue and click Run Pipeline.")
+            run_btn = gr.Button("Execute Multi-Agent Pipeline", elem_classes=["run-pipeline-btn"])
+            status_markdown = gr.Markdown("**Status**: `IDLE` | Select an issue payload to begin execution.")
 
         # Right Column: Detailed Output Artifact Tabs
         with gr.Column(scale=4):
             with gr.Tabs():
-                with gr.Tab("📄 Patch Diff"):
+                with gr.Tab("Patch Diff"):
                     patch_output = gr.Code(language=None, label="Generated Patch Diff")
-                with gr.Tab("🧪 Test Results"):
+                with gr.Tab("Test Execution"):
                     test_output = gr.Textbox(lines=8, label="Pytest Sandbox Output")
-                with gr.Tab("🔍 Code Review & Lints"):
+                with gr.Tab("Code Review & Lints"):
                     review_output = gr.Textbox(lines=8, label="Reviewer Critique & Lints")
-                with gr.Tab("📝 Documentation"):
+                with gr.Tab("Documentation"):
                     doc_output = gr.Textbox(lines=8, label="Generated Doc Updates & Changelog")
-                with gr.Tab("📋 Session Log"):
+                with gr.Tab("Session Telemetry"):
                     log_output = gr.Code(language="json", label="Structured Session Telemetry")
 
     # Bottom Human Approval Gate Row
-    with gr.Row(visible=False) as gate_row:
-        gr.Markdown("### 🛑 HUMAN APPROVAL GATE (Invariant I-1)")
+    with gr.Column(visible=False) as gate_row:
+        gr.HTML(f"""
+        <div class="gate-banner">
+            {SHIELD_SVG}
+            <span class="gate-title">HUMAN APPROVAL GATE (Safety Invariant I-1)</span>
+        </div>
+        """)
         with gr.Row():
-            approve_btn = gr.Button("🟢 Approve & Open Pull Request", elem_classes=["gate-approve-btn"])
-            reject_btn = gr.Button("🔴 Reject Session (Purge Sandbox)", elem_classes=["gate-reject-btn"])
+            approve_btn = gr.Button("Approve & Open Pull Request", elem_classes=["gate-approve-btn"])
+            reject_btn = gr.Button("Reject Session (Purge Sandbox)", elem_classes=["gate-reject-btn"])
         with gr.Row():
             feedback_txt = gr.Textbox(placeholder="Enter feedback for Coding Assistant retry...", label="Request Changes Feedback")
-            request_btn = gr.Button("🟠 Request Changes & Retry Pass", elem_classes=["gate-request-btn"])
+            request_btn = gr.Button("Request Changes & Retry Pass", elem_classes=["gate-request-btn"])
 
     # Wire Pipeline Run Event
     run_btn.click(
