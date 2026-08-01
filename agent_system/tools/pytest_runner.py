@@ -76,16 +76,57 @@ def apply_patch(sandbox_dir: Path, diff: str) -> Union[bool, ToolError]:
             capture_output=True,
         )
         if process.returncode != 0:
-            # Fallback retry without unidiff-zero if needed
             process = subprocess.run(
                 ["git", "apply", "--ignore-space-change", "--ignore-whitespace", "--recount"],
-                input=diff,
+                input=diff_text,
                 text=True,
                 cwd=sandbox_dir,
                 capture_output=True,
             )
 
         if process.returncode != 0:
+            # Fallback: Python-native patch application if git apply fails on LLM header formatting
+            try:
+                for chunk in diff_text.split("diff --git"):
+                    if not chunk.strip():
+                        continue
+                    lines = chunk.strip().splitlines()
+                    target_file = None
+                    for line in lines:
+                        if line.startswith("+++ b/"):
+                            target_file = line[6:].strip()
+                            break
+                        elif line.startswith("+++ "):
+                            target_file = line[4:].strip().lstrip("b/").lstrip("a/")
+                            break
+                    
+                    if not target_file:
+                        continue
+
+                    full_path = sandbox_dir / target_file.lstrip("/")
+                    if not full_path.exists():
+                        continue
+
+                    # Extract removed and added lines
+                    old_lines = []
+                    new_lines = []
+                    for line in lines:
+                        if line.startswith("-") and not line.startswith("---"):
+                            old_lines.append(line[1:])
+                        elif line.startswith("+") and not line.startswith("+++"):
+                            new_lines.append(line[1:])
+
+                    if old_lines and full_path.exists():
+                        content = full_path.read_text(encoding="utf-8")
+                        old_block = "\n".join(old_lines)
+                        new_block = "\n".join(new_lines)
+                        if old_block in content:
+                            content = content.replace(old_block, new_block, 1)
+                            full_path.write_text(content, encoding="utf-8")
+                            return True
+            except Exception:
+                pass
+
             return ToolError(
                 tool="T-3:pytest_runner",
                 error_type="PATCH_APPLY_FAILED",
