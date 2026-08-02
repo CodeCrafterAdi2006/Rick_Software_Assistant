@@ -97,10 +97,20 @@ GITHUB_LIVE_MODE=false
 ```
 
 ### 3. Launch the Gradio Desktop Application 🖥️
-Run the desktop window launcher with auto-port detection:
+Run the desktop window launcher using your virtual environment Python:
+
+**Option A (Direct Command - Recommended)**:
 ```bash
+.\.venv\Scripts\python.exe launch.py
+```
+*(On Linux/macOS: `./.venv/bin/python launch.py`)*
+
+**Option B (If Virtual Environment is Activated)**:
+```bash
+.\.venv\Scripts\activate
 python launch.py
 ```
+
 > **Desktop Window**: Automatically opens a native PyWebView desktop window at `http://127.0.0.1:7861`. If PyWebView is unavailable, fallback browser navigation is provided automatically.
 
 ---
