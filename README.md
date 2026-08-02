@@ -96,14 +96,43 @@ PERSONA_ENABLED=true
 GITHUB_LIVE_MODE=false
 ```
 
-### 3. Run a Single Issue
-Execute the pipeline on any sample issue payload:
+### 3. Launch the Gradio Desktop Application 🖥️
+Run the desktop window launcher with auto-port detection:
+```bash
+python launch.py
+```
+> **Desktop Window**: Automatically opens a native PyWebView desktop window at `http://127.0.0.1:7861`. If PyWebView is unavailable, fallback browser navigation is provided automatically.
+
+---
+
+## 🖥️ Desktop Application Features
+
+The Gradio 6.0 interface (`app.py`) provides an interactive control center for the multi-agent pipeline:
+
+* **Rick Mascot Panel**: Real-time contextual dialogue status bubble.
+* **Issue Selector**: Choose benchmark payloads (`issues/bug_42.json`, `issues/feature_7.json`, `issues/partial_44.json`) or upload custom issue JSONs.
+* **5 Live Inspection Tabs**:
+  1. 📝 **Patch Diff**: Formatted unified diff viewer.
+  2. 🧪 **Test Execution**: Pytest sandbox status (`PASS`/`FAIL`), test counts, and raw tracebacks.
+  3. 🛡️ **Code Review & Lints**: Code reviewer critique decisions and static linter outputs (`Tool T-4`).
+  4. 📚 **Documentation**: Generated docstrings and changelog entries.
+  5. 🔍 **Session Telemetry**: Full Pydantic `SessionState` JSON dump.
+* **Interactive Human Approval Gate**:
+  * 🟢 **Approve & Open Pull Request**: Dispatches `Tool T-5` to create a GitHub PR and clean up sandbox.
+  * 🟡 **Request Changes & Retry Pass**: Input custom feedback for the Coding Assistant and trigger a fresh reflection pass.
+  * 🔴 **Reject Session**: Immediately purges `.sandbox/{session_id}` from disk.
+* **Settings Modal**: Configure `GROQ_API_KEY`, toggle persona mode, and view active multi-key pool rotation.
+
+---
+
+### 4. CLI Execution (Optional)
+Run the pipeline directly from the command line:
 ```bash
 python -m agent_system issues/bug_42.json
 ```
 
-### 4. Run the Full Benchmark Evaluation Suite
-Evaluate the agent across the 13-payload benchmark suite:
+### 5. Benchmark Evaluation Suite
+Evaluate the agent pipeline across the 13-payload benchmark suite:
 ```bash
 python scripts/run_benchmark.py
 ```
