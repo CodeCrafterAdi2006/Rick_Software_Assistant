@@ -1,0 +1,16 @@
+# Rick Software Assistant - Core Dependencies
+
+# Core Pipeline & LLM
+openai>=1.50.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+pillow>=10.0.0
+
+# Desktop UI & Window Launcher
+gradio>=6.0.0
+pywebview>=5.0.0
+
+# Development, Testing & Linting
+pytest>=8.0.0
+ruff>=0.1.0
